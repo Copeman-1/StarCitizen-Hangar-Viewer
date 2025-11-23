@@ -1,8 +1,10 @@
+<img width="1820" height="932" alt="Screenshot 2025-11-23 175437" src="https://github.com/user-attachments/assets/9265ac28-60d0-4c3c-bcbb-98576cb5c7df" />
 # Star Citizen Hangar Viewer
 
 A browser extension to extract and view your Star Citizen hangar items with melt values, insurance info, and Concierge level.
 
 ## Installation
+
 
 1. Download and extract `sc-hangar-extension-v2.zip`
 2. Open your browser's extensions page:
