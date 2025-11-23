@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC Hangar Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 400px;
+            min-height: 300px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e6ed;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(99, 179, 237, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #63b3ed 0%, #4299e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.85rem;
+            color: #a0aec0;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .stat {
+            flex: 1;
+            background: rgba(66, 153, 225, 0.1);
+            border: 1px solid rgba(99, 179, 237, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #63b3ed;
+        }
+
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px;
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(66, 153, 225, 0.4);
+        }
+
+        .btn:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(66, 153, 225, 0.2);
+            border: 1px solid rgba(99, 179, 237, 0.4);
+        }
+
+        .status {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .status.loading {
+            color: #63b3ed;
+            display: block;
+        }
+
+        .status.success {
+            color: #48bb78;
+            display: block;
+        }
+
+        .status.error {
+            color: #f56565;
+            display: block;
+        }
+
+        .instructions {
+            background: rgba(66, 153, 225, 0.1);
+            border: 1px solid rgba(99, 179, 237, 0.3);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.8rem;
+            color: #a0aec0;
+        }
+
+        .instructions h3 {
+            color: #63b3ed;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .link {
+            color: #63b3ed;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .link:hover {
+            color: #4299e1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⭐ SC Hangar Viewer</h1>
+        <p>Extract & View Your Fleet</p>
+    </div>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-label">Items</div>
+            <div class="stat-value" id="itemCount">-</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Melt Value</div>
+            <div class="stat-value" id="meltValue">$0</div>
+        </div>
+    </div>
+
+    <div id="statusMessage" class="status"></div>
+
+    <div class="buttons">
+        <button class="btn" id="extractBtn">Extract Hangar Data</button>
+        <button class="btn btn-secondary" id="viewBtn">View My Hangar</button>
+        <button class="btn btn-secondary" id="refreshBtn">Refresh Stats</button>
+    </div>
+
+    <div class="instructions">
+        <h3>How to Use:</h3>
+        <ol>
+            <li>Go to your <span class="link" id="hangarLink">RSI Hangar page</span></li>
+            <li>Wait for the page to load</li>
+            <li>Click "Extract Hangar Data"</li>
+            <li>Click "View My Hangar"</li>
+        </ol>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
