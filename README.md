@@ -1,3 +1,8 @@
+UI Update 2.0.1
+<img width="1569" height="935" alt="UI V-2 0 1" src="https://github.com/user-attachments/assets/a36c491f-31dc-4203-8018-47e1cfdd0a33" />
+End Update
+
+
 <img width="1820" height="932" alt="Screenshot 2025-11-23 175437" src="https://github.com/user-attachments/assets/9265ac28-60d0-4c3c-bcbb-98576cb5c7df" />
 # Star Citizen Hangar Viewer
 
