@@ -87,8 +87,18 @@ function renderItems(items) {
     const grid = document.getElementById('itemsGrid');
     if (!grid) return;
     
-    grid.innerHTML = items.map(item => `
-        <div class="item-card">
+    grid.innerHTML = items.map(item => {
+        // Generate clean filename from ship name for custom backgrounds
+        // Example: "L-21 Wolf" -> "l-21-wolf.jpg"
+        const shipNameForImage = item.name.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+            .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
+        
+        // Try to load custom background image (jpg or png)
+        const backgroundStyle = `background: linear-gradient(135deg, rgba(26, 32, 44, 0.75) 0%, rgba(45, 55, 72, 0.75) 100%), url('ship-backgrounds/${shipNameForImage}.jpg') center/cover, url('ship-backgrounds/${shipNameForImage}.png') center/cover;`;
+        
+        return `
+        <div class="item-card" style="${backgroundStyle}">
             <div class="item-header">
                 <div class="item-name">${item.name}</div>
                 <div class="item-melt">$${item.meltValue || 0}</div>
@@ -113,7 +123,8 @@ function renderItems(items) {
             </div>
             ${item.meltValue > 0 ? '<span class="tag">✓ Meltable</span>' : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function filterAndSort(allItems) {

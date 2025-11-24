@@ -29,6 +29,20 @@ A browser extension to extract and view your Star Citizen hangar items with melt
 - **Concierge Level**: Automatically detects and displays your Chairman's Club rank
 - **Search & Sort**: Filter by name and sort by value/date/name
 - **Clean Names**: Removes prefixes and suffixes for easier reading
+- **Custom Backgrounds**: Add your own ship images (see below)
+
+## Custom Ship Backgrounds
+
+You can add custom background images for your ships!
+
+1. Go to the extension folder: `sc-hangar-extension-v2/ship-backgrounds/`
+2. Add ship images named to match your ships:
+   - `perseus.jpg` for Perseus
+   - `l-21-wolf.jpg` for L-21 Wolf
+   - `aegis-avenger-titan.png` for Aegis Avenger Titan
+3. Reload the viewer to see your backgrounds
+
+See `ship-backgrounds/README.md` for detailed naming instructions.
 
 ## What Gets Filtered Out
 
