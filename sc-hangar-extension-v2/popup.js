@@ -1,7 +1,10 @@
 // Popup script
 const extractBtn = document.getElementById('extractBtn');
 const viewBtn = document.getElementById('viewBtn');
+const buybackBtn = document.getElementById('buybackBtn');
+const wishlistBtn = document.getElementById('wishlistBtn');
 const refreshBtn = document.getElementById('refreshBtn');
+const clearBtn = document.getElementById('clearBtn');
 const statusMessage = document.getElementById('statusMessage');
 const itemCount = document.getElementById('itemCount');
 const meltValue = document.getElementById('meltValue');
@@ -21,13 +24,15 @@ extractBtn.addEventListener('click', async () => {
             return;
         }
         
-        if (!tab.url.includes('/account/pledges')) {
-            showStatus('Please go to: Account > My Hangar', 'error');
+        if (!tab.url.includes('/account/pledges') && !tab.url.includes('/account/buy-back-pledges')) {
+            showStatus('Please go to: Account > My Hangar or Account > Buy Back Pledges', 'error');
             return;
         }
         
+        const isBuyback = tab.url.includes('/account/buy-back-pledges');
+        
         extractBtn.disabled = true;
-        showStatus('Extracting data... Please wait.', 'loading');
+        showStatus(isBuyback ? 'Extracting buyback data...' : 'Extracting data... Please wait.', 'loading');
         
         // Inject the extraction script
         await chrome.scripting.executeScript({
@@ -51,7 +56,17 @@ extractBtn.addEventListener('click', async () => {
 
 // View button
 viewBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('app.html') });
+});
+
+// Buyback button
+buybackBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('buyback.html') });
+});
+
+// Wishlist button
+wishlistBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('wishlist.html') });
 });
 
 // Refresh button
@@ -61,6 +76,19 @@ refreshBtn.addEventListener('click', () => {
     setTimeout(() => {
         statusMessage.style.display = 'none';
     }, 2000);
+});
+
+// Clear button
+clearBtn.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear all hangar data? This will delete all extracted ships and you\'ll need to extract again from all pages.')) {
+        chrome.storage.local.set({ hangarData: [], conciergeLevel: null }, () => {
+            loadStats();
+            showStatus('Data cleared! Extract from page 1 to start fresh.', 'success');
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 3000);
+        });
+    }
 });
 
 // Hangar link
@@ -95,43 +123,123 @@ function showStatus(message, type) {
 function extractHangarData() {
     console.log('SC Hangar Viewer: Starting extraction...');
     
-    // First, expand all items to load insurance info
-    console.log('Expanding all items to load insurance data...');
-    const expandArrows = document.querySelectorAll('.js-expand-arrow');
-    let expandedCount = 0;
+    // Detect if this is buyback page
+    const isBuybackPage = window.location.href.includes('/account/buy-back-pledges');
+    console.log('Is buyback page:', isBuybackPage);
     
-    expandArrows.forEach(arrow => {
-        // Only click if not already expanded
-        const parent = arrow.closest('.row');
-        if (parent && !parent.classList.contains('active')) {
-            arrow.click();
-            expandedCount++;
-        }
-    });
-    
-    console.log(`Clicked ${expandedCount} arrows to expand items`);
-    
-    // Wait longer for AJAX content to load
-    // Check every 500ms if content is loaded, up to 10 seconds
-    let checkCount = 0;
-    const maxChecks = 20; // 20 checks * 500ms = 10 seconds max
-    
-    const checkInterval = setInterval(() => {
-        checkCount++;
-        const jsMoreElements = document.querySelectorAll('.js-more');
-        console.log(`Check ${checkCount}: Found ${jsMoreElements.length} .js-more elements`);
+    // Expand all items and extract
+    function expandAndExtract() {
+        // First, expand all items to load insurance info
+        console.log('Expanding all items to load insurance data...');
+        const expandArrows = document.querySelectorAll('.js-expand-arrow');
+        let expandedCount = 0;
         
-        if (jsMoreElements.length > 0 || checkCount >= maxChecks) {
-            clearInterval(checkInterval);
-            console.log('Starting extraction...');
-            continueExtraction();
+        expandArrows.forEach(arrow => {
+            // Only click if not already expanded
+            const parent = arrow.closest('.row');
+            if (parent && !parent.classList.contains('active')) {
+                arrow.click();
+                expandedCount++;
+            }
+        });
+        
+        console.log(`Clicked ${expandedCount} arrows to expand items`);
+        
+        // Wait longer for AJAX content to load
+        // Check every 500ms if content is loaded, up to 10 seconds
+        let checkCount = 0;
+        const maxChecks = 20; // 20 checks * 500ms = 10 seconds max
+        
+        const checkInterval = setInterval(() => {
+            checkCount++;
+            const jsMoreElements = document.querySelectorAll('.js-more');
+            console.log(`Check ${checkCount}: Found ${jsMoreElements.length} .js-more elements`);
+            
+            if (jsMoreElements.length > 0 || checkCount >= maxChecks) {
+                clearInterval(checkInterval);
+                console.log('Starting extraction...');
+                continueExtraction();
+            }
+        }, 500);
+        
+        function continueExtraction() {
+        const items = [];
+        const allItemsForConcierge = []; // Track ALL items for Concierge detection
+    
+    if (isBuybackPage) {
+        // BUYBACK PAGE EXTRACTION
+        console.log('Extracting from buyback page...');
+        const pledgeArticles = document.querySelectorAll('article.pledge');
+        
+        console.log(`Found ${pledgeArticles.length} buyback items`);
+        
+        if (pledgeArticles.length === 0) {
+            alert('No buyback items found. Make sure you are on the buyback page and it has fully loaded.');
+            return;
         }
-    }, 500);
-    
-    function continueExtraction() {
-    const items = [];
-    const allItemsForConcierge = []; // Track ALL items for Concierge detection
-    
+        
+        pledgeArticles.forEach((article, index) => {
+            try {
+                // Get name from h1
+                const nameElement = article.querySelector('h1');
+                const name = nameElement ? nameElement.textContent.trim().replace(/^Paints\s*-\s*/i, '') : 'Unknown';
+                
+                // Get value
+                const infoDiv = article.querySelector('.information');
+                let meltValue = 0;
+                if (infoDiv) {
+                    const figureElement = infoDiv.querySelector('figure');
+                    if (figureElement) {
+                        const valueText = figureElement.textContent;
+                        const valueMatch = valueText.match(/\$\s*([\d,]+)/);
+                        if (valueMatch) {
+                            meltValue = parseFloat(valueMatch[1].replace(/,/g, ''));
+                        }
+                    }
+                }
+                
+                // Check if unavailable (can't use store credit)
+                const isUnavailable = article.classList.contains('unavailable');
+                const canUseCredit = !isUnavailable;
+                
+                // Determine type
+                const nameLower = name.toLowerCase();
+                let type = 'Item';
+                if (nameLower.includes('paint')) type = 'Paint';
+                else if (nameLower.includes('package')) type = 'Package';
+                else if (nameLower.includes('ship')) type = 'Ship';
+                else if (nameLower.includes('rover') || nameLower.includes('cyclone')) type = 'Ground Vehicle';
+                
+                // Get pledge ID from link
+                const linkElement = article.querySelector('a.holosmallbtn');
+                let pledgeId = `buyback-${index}`;
+                if (linkElement) {
+                    const href = linkElement.getAttribute('href');
+                    const idMatch = href ? href.match(/\/(\d+)$/) : null;
+                    if (idMatch) pledgeId = `buyback-${idMatch[1]}`;
+                }
+                
+                items.push({
+                    id: index + 1,
+                    name: name,
+                    originalName: name,
+                    meltValue: meltValue,
+                    insurance: 'N/A',
+                    status: 'N/A',
+                    type: type,
+                    pledgeId: pledgeId,
+                    canUseCredit: canUseCredit,
+                    meltedDate: 'N/A'
+                });
+                
+                console.log(`✓ ${name} - $${meltValue} (Credit: ${canUseCredit})`);
+            } catch (err) {
+                console.error(`Error processing buyback item ${index}:`, err);
+            }
+        });
+    } else {
+    // HANGAR PAGE EXTRACTION
+    console.log('Extracting from hangar page...');
     // Use the actual classes from RSI's page
     const pledgeScripts = document.querySelectorAll('.js-pledge-nameable-ships');
     
@@ -236,10 +344,14 @@ function extractHangarData() {
             function cleanShipName(name) {
                 let cleaned = name;
                 
-                // Remove common prefixes
+                // Remove common prefixes (including Add-Ons)
+                cleaned = cleaned.replace(/^Add-Ons?\s*-\s*/i, '');
                 cleaned = cleaned.replace(/^Standalone Ships\s*-\s*/i, '');
                 cleaned = cleaned.replace(/^Paints\s*-\s*/i, '');
                 cleaned = cleaned.replace(/^Gear\s*-\s*/i, '');
+                
+                // Remove Patch Bundle from end
+                cleaned = cleaned.replace(/\s*-?\s*Patch Bundle$/i, '');
                 
                 // Remove insurance suffixes like " - 10 Year", " - 120 Month", " - LTI", " - Lifetime Insurance"
                 cleaned = cleaned.replace(/\s*-\s*\d+\s*(Month|Year)s?$/i, '');
@@ -255,15 +367,11 @@ function extractHangarData() {
             const insurance = parseInsurance(originalName, pledge);
             const cleanedOriginalName = cleanShipName(originalName);
             
-            // Get date if available (declare early so we can use it later)
-            const dateInput = pledge.querySelector('.js-pledge-date, .js-pledge-last-alpha');
-            const date = dateInput ? dateInput.value : 'N/A';
-            
             // Check if this item was upgraded by looking for span.upgraded
             const upgradedSpan = pledge.querySelector('span.upgraded');
             
             let displayName = originalName;
-            let displayDate = date;
+            let displayDate = 'N/A'; // Default to N/A for non-upgraded items
             let displayInsurance = insurance;
             let isUpgraded = false;
             let upgradedTo = '';
@@ -280,8 +388,8 @@ function extractHangarData() {
                     isUpgraded = true;
                     // Show upgraded ship as the main name
                     displayName = upgradedTo;
-                    // Show cleaned original ship in the date field
-                    displayDate = `From: ${cleanedOriginalName}`;
+                    // Show cleaned original ship in the Upgraded From field
+                    displayDate = cleanedOriginalName;
                     console.log(`Found upgrade: ${originalName} → ${upgradedTo}`);
                 }
             } else {
@@ -310,13 +418,27 @@ function extractHangarData() {
             let type = 'Item';
             const nameToCheck = (isUpgraded ? upgradedTo : originalName).toLowerCase();
             
-            if (nameToCheck.includes('package')) type = 'Package';
-            else if (nameToCheck.includes('ship')) type = 'Ship';
-            else if (nameToCheck.includes('upgrade')) type = 'Upgrade';
+            // Check for specific types first (most specific to least specific)
+            if (nameToCheck.includes('weapons kit') || nameToCheck.includes('weapon kit')) type = 'Weapons Kit';
+            else if (nameToCheck.includes('bundle')) type = 'Bundle';
             else if (nameToCheck.includes('gift card')) type = 'Gift Card';
             else if (nameToCheck.includes('paint')) type = 'Paint';
             else if (nameToCheck.includes('flair')) type = 'Flair';
-            else if (nameToCheck.includes('rover') || nameToCheck.includes('wolf') || nameToCheck.includes('vehicle')) type = 'Vehicle';
+            else if (nameToCheck.includes('package')) type = 'Package';
+            else if (nameToCheck.includes('upgrade')) type = 'Upgrade';
+            // Check for ground vehicles (not ships like Wolf/Alpha Wolf)
+            else if (nameToCheck.includes('rover') || nameToCheck.includes('cyclone') || nameToCheck.includes('ptv') || 
+                     nameToCheck.includes('ballista') || nameToCheck.includes('mule') || nameToCheck.includes('ursa') ||
+                     nameToCheck.includes('nova tank') || nameToCheck.includes('spartan') || nameToCheck.includes('ranger')) {
+                type = 'Ground Vehicle';
+            }
+            // Ships - check for ship keywords or specific ship names like Wolf (but not weapons kit)
+            else if (nameToCheck.includes('ship') || 
+                     (nameToCheck.includes('wolf') && !nameToCheck.includes('weapons kit') && !nameToCheck.includes('ballistic')) ||
+                     nameToCheck.includes('alpha wolf') || nameToCheck.includes('l-21') || nameToCheck.includes('l-22')) {
+                type = 'Ship';
+            }
+            else if (nameToCheck.includes('vehicle')) type = 'Ground Vehicle';
             
             // Add to allItemsForConcierge BEFORE filtering (so we can detect VIP items even if $0)
             allItemsForConcierge.push({
@@ -330,10 +452,32 @@ function extractHangarData() {
                 return;
             }
             
-            // Determine status
-            let status = 'Hangar Ready';
-            if (isUpgraded) {
-                status = 'Upgraded';
+            // Determine status - check if ship is In Concept
+            const inConceptShips = ['ironclad', 'kraken', 'pioneer', 'hull e', 'hull d', 'hull b', 
+                'nautilus', 'odyssey', 'merchantman', 'orion', 'arrastra', 'genesis', 'galaxy', 
+                'endeavor', 'crucible', 'railen', 'vulcan', 'zeus mk ii', 'spirit e1', 'legionnaire',
+                'g12', 'ranger', 'nova', 'spartan', 'x1', 'apollo', 'perseus', 'polaris'];
+            
+            let status = 'Flight Ready';
+            
+            // Check if it's an add-on, paint, or patch bundle - set status to N/A
+            const originalNameLower = originalName.toLowerCase();
+            const isAddonOrPaint = originalNameLower.includes('add-on') || 
+                                   originalNameLower.includes('patch bundle') ||
+                                   originalNameLower.includes('paint') ||
+                                   type === 'Paint';
+            
+            if (isAddonOrPaint) {
+                status = 'N/A';
+            } else {
+                // Check if ship name contains any In Concept ship names (use current ship name if upgraded)
+                const shipNameLower = displayName.toLowerCase();
+                const isInConcept = inConceptShips.some(conceptShip => 
+                    shipNameLower.includes(conceptShip)
+                );
+                if (isInConcept) {
+                    status = 'In Concept';
+                }
             }
             
             items.push({
@@ -357,28 +501,38 @@ function extractHangarData() {
             console.error('Error extracting item:', err);
         }
     });
+    } // end else (hangar extraction)
     
     console.log(`\n=== FINAL RESULTS ===`);
     console.log(`Total extracted: ${items.length} items`);
     console.log('All items:', items);
     
-    // Determine Concierge level based on items found
-    const conciergeItems = {
-        'VIP High Admiral': 'High Admiral',
-        'VIP Grand Admiral': 'Grand Admiral',
-        'VIP Space Marshal': 'Space Marshal',
-        'VIP Wing Commander': 'Wing Commander',
-        'VIP Praetorian': 'Praetorian',
-        'VIP Legatus Navium': 'Legatus Navium'
-    };
+    // Check if there are more pages
+    const pagination = document.querySelector('.pagination');
+    const hasMorePages = pagination && pagination.querySelector('.next:not(.disabled)');
     
-    const levelOrder = ['High Admiral', 'Grand Admiral', 'Space Marshal', 'Wing Commander', 'Praetorian', 'Legatus Navium'];
+    if (hasMorePages) {
+        console.log('⚠️ Multiple pages detected! You may have more items on other pages.');
+    }
     
+    // Determine Concierge level (only for hangar, not buyback)
     let conciergeLevel = null;
-    let highestLevelIndex = -1;
-    
-    // Check ALL items (including $0 ones) to find the highest concierge level
-    allItemsForConcierge.forEach(item => {
+    if (!isBuybackPage) {
+        const conciergeItems = {
+            'VIP High Admiral': 'High Admiral',
+            'VIP Grand Admiral': 'Grand Admiral',
+            'VIP Space Marshal': 'Space Marshal',
+            'VIP Wing Commander': 'Wing Commander',
+            'VIP Praetorian': 'Praetorian',
+            'VIP Legatus Navium': 'Legatus Navium'
+        };
+        
+        const levelOrder = ['High Admiral', 'Grand Admiral', 'Space Marshal', 'Wing Commander', 'Praetorian', 'Legatus Navium'];
+        
+        let highestLevelIndex = -1;
+        
+        // Check ALL items (including $0 ones) to find the highest concierge level
+        allItemsForConcierge.forEach(item => {
         for (const [itemName, level] of Object.entries(conciergeItems)) {
             if (item.originalName.includes(itemName) || item.name.includes(itemName)) {
                 const levelIndex = levelOrder.indexOf(level);
@@ -392,17 +546,50 @@ function extractHangarData() {
     });
     
     console.log('Concierge level detected:', conciergeLevel);
+    } // end if (!isBuybackPage) - concierge detection
     
     if (items.length === 0) {
         alert('Extraction found elements but could not parse data. Check console (F12) for details.');
         return;
     }
     
-    // Save to storage with concierge level
-    chrome.storage.local.set({ 
-        hangarData: items,
-        conciergeLevel: conciergeLevel 
-    }, () => {
+    // Load existing data from storage and merge
+    const storageKey = isBuybackPage ? 'buybackData' : 'hangarData';
+    const storageKeys = isBuybackPage ? [storageKey] : [storageKey, 'conciergeLevel'];
+    
+    chrome.storage.local.get(storageKeys, (existingResult) => {
+        const existingItems = existingResult[storageKey] || [];
+        const existingConcierge = existingResult.conciergeLevel || null;
+        
+        // Merge items, preventing duplicates based on pledgeId
+        const mergedItems = [...existingItems];
+        let newItemsCount = 0;
+        
+        items.forEach(newItem => {
+            // Check if item already exists (by pledgeId)
+            const exists = mergedItems.some(existing => 
+                existing.pledgeId === newItem.pledgeId
+            );
+            
+            if (!exists) {
+                mergedItems.push(newItem);
+                newItemsCount++;
+            }
+        });
+        
+        console.log(`Added ${newItemsCount} new items (${items.length - newItemsCount} duplicates skipped)`);
+        console.log(`Total items in hangar: ${mergedItems.length}`);
+        
+        // Use highest concierge level found
+        const finalConciergeLevel = !existingConcierge ? conciergeLevel : 
+            (!conciergeLevel ? existingConcierge : 
+            (levelOrder.indexOf(conciergeLevel) > levelOrder.indexOf(existingConcierge) ? conciergeLevel : existingConcierge));
+        
+        // Determine what to save based on page type
+        const dataToSave = isBuybackPage ? { [storageKey]: mergedItems } : { [storageKey]: mergedItems, conciergeLevel: finalConciergeLevel };
+        
+        // Save merged data to storage
+        chrome.storage.local.set(dataToSave, () => {
         console.log('Data saved to storage!');
         
         // Show notification
@@ -420,11 +607,26 @@ function extractHangarData() {
             font-family: Arial, sans-serif;
             font-size: 14px;
             font-weight: 600;
+            max-width: 300px;
         `;
-        notification.textContent = `✓ Extracted ${items.length} items!`;
+        
+        let notificationText = `✓ Added ${newItemsCount} new items!<br>Total: ${mergedItems.length} items`;
+        if (newItemsCount === 0 && items.length > 0) {
+            notificationText = `✓ No new items found<br>Total: ${mergedItems.length} items`;
+        }
+        if (hasMorePages) {
+            notificationText += '<br><br>💡 Go to next page and extract again to add more items!';
+        }
+        
+        notification.innerHTML = notificationText;
         document.body.appendChild(notification);
         
-        setTimeout(() => notification.remove(), 3000);
-    });
+        setTimeout(() => notification.remove(), hasMorePages ? 6000 : 3000);
+        }); // end chrome.storage.local.set
+    }); // end chrome.storage.local.get
     } // end continueExtraction
+    } // end expandAndExtract
+    
+    // Start extraction immediately
+    expandAndExtract();
 } // end extractHangarData

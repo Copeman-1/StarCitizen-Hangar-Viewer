@@ -3,6 +3,15 @@ chrome.storage.local.get(['hangarData', 'conciergeLevel'], (result) => {
     const items = result.hangarData || [];
     const conciergeLevel = result.conciergeLevel || null;
     
+    // Add navigation handlers
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = btn.getAttribute('data-page');
+            if (page === 'buyback') window.location.href = 'buyback.html';
+            else if (page === 'wishlist') window.location.href = 'wishlist.html';
+        });
+    });
+    
     if (items.length === 0) {
         document.getElementById('content').innerHTML = `
             <div class="empty-state">
@@ -113,8 +122,8 @@ function renderItems(items) {
                     <span class="detail-value">${item.status || 'N/A'}</span>
                 </div>
                 <div class="item-detail">
-                    <span class="detail-label">${item.date && item.date.startsWith('From:') ? 'Upgraded From' : 'Date'}</span>
-                    <span class="detail-value">${item.date ? item.date.replace('From: ', '') : 'N/A'}</span>
+                    <span class="detail-label">Upgraded From</span>
+                    <span class="detail-value">${item.date || 'N/A'}</span>
                 </div>
                 <div class="item-detail">
                     <span class="detail-label">Insurance</span>
