@@ -1,5 +1,5 @@
-UI Update 2.0.1
-<img width="1569" height="935" alt="UI V-2 0 1" src="https://github.com/user-attachments/assets/a36c491f-31dc-4203-8018-47e1cfdd0a33" />
+UI Update 2.0.2
+<img width="1851" height="923" alt="Screenshot 2025-11-25 152938" src="https://github.com/user-attachments/assets/a32e58db-e9a6-4d0b-a014-a3d4bf43f539" />
 End Update
 
 
