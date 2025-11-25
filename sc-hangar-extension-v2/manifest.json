@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Star Citizen Hangar Viewer",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "description": "Extract your Star Citizen hangar data",
   "permissions": [
     "activeTab",
@@ -9,7 +9,8 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://robertsspaceindustries.com/*"
+    "https://robertsspaceindustries.com/*",
+    "https://api.github.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

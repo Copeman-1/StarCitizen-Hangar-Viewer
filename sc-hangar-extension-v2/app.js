@@ -4,6 +4,104 @@ let buybackData = [];
 let wishlistData = [];
 let conciergeLevel = null;
 
+const CURRENT_VERSION = '2.0.3';
+const GITHUB_REPO = 'Copeman-1/StarCitizen-Hangar-Viewer';
+
+// Check for updates on GitHub
+async function checkForUpdates() {
+    try {
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+        const data = await response.json();
+        
+        const latestVersion = data.tag_name; // e.g., "2.0.2" or "v2.0.2"
+        const cleanLatestVersion = latestVersion.replace(/^v/, ''); // Remove 'v' prefix if present
+        
+        console.log('Current version:', CURRENT_VERSION);
+        console.log('Latest version:', cleanLatestVersion);
+        
+        if (cleanLatestVersion !== CURRENT_VERSION) {
+            // Show update notification
+            showUpdateNotification(cleanLatestVersion, data.html_url);
+        }
+    } catch (error) {
+        console.error('Failed to check for updates:', error);
+    }
+}
+
+// Show update notification
+function showUpdateNotification(version, url) {
+    const notification = document.createElement('div');
+    notification.id = 'update-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 3000;
+        max-width: 350px;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    notification.innerHTML = `
+        <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 10px;">
+            🚀 Update Available!
+        </div>
+        <div style="font-size: 0.9rem; margin-bottom: 15px;">
+            Version ${version} is now available. You're on ${CURRENT_VERSION}.
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="${url}" target="_blank" style="
+                flex: 1;
+                padding: 8px 16px;
+                background: white;
+                color: #f59e0b;
+                text-align: center;
+                border-radius: 6px;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 0.9rem;
+            ">Download</a>
+            <button id="dismiss-update-btn" style="
+                padding: 8px 16px;
+                background: rgba(255, 255, 255, 0.2);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 0.9rem;
+            ">Dismiss</button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Add dismiss button event listener
+    document.getElementById('dismiss-update-btn').addEventListener('click', () => {
+        notification.remove();
+    });
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // View titles mapping
 const viewTitles = {
     fleet: 'Fleet Overview',
@@ -997,3 +1095,4 @@ function exportData() {
 
 // Initialize
 loadAllData();
+checkForUpdates();
