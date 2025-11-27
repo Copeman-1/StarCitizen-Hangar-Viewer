@@ -4,7 +4,7 @@ let buybackData = [];
 let wishlistData = [];
 let conciergeLevel = null;
 
-const CURRENT_VERSION = '2.0.2';
+const CURRENT_VERSION = '2.0.4';
 const GITHUB_REPO = 'Copeman-1/StarCitizen-Hangar-Viewer';
 
 // Check for updates on GitHub
