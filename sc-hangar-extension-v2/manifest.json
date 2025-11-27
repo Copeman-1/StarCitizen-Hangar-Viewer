@@ -10,7 +10,8 @@
   ],
   "host_permissions": [
     "https://robertsspaceindustries.com/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://raw.githubusercontent.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

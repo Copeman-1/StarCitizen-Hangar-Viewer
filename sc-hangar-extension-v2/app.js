@@ -4,7 +4,7 @@ let buybackData = [];
 let wishlistData = [];
 let conciergeLevel = null;
 
-const CURRENT_VERSION = '2.0.3';
+const CURRENT_VERSION = '2.0.2';
 const GITHUB_REPO = 'Copeman-1/StarCitizen-Hangar-Viewer';
 
 // Check for updates on GitHub
@@ -645,18 +645,103 @@ function renderValueView() {
 // Settings View
 function renderSettingsView() {
     const content = document.getElementById('settings-content');
-    content.innerHTML = `
-        <h3 style="margin-bottom: 20px; color: #3b82f6;">Settings</h3>
-        <div class="stat-card" style="max-width: 600px;">
-            <h4 style="margin-bottom: 15px;">Data Management</h4>
-            <button id="clear-data-btn" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Clear All Data</button>
-            <button id="export-data-btn" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Export to CSV</button>
-        </div>
-    `;
     
-    // Add event listeners
-    document.getElementById('clear-data-btn').addEventListener('click', clearAllData);
-    document.getElementById('export-data-btn').addEventListener('click', exportData);
+    // Get current border color from storage or use default
+    chrome.storage.local.get(['cardBorderColor'], (result) => {
+        const currentColor = result.cardBorderColor || '#64748b';
+        
+        content.innerHTML = `
+            <h3 style="margin-bottom: 20px; color: #3b82f6;">Settings</h3>
+            
+            <div class="stat-card" style="max-width: 600px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px;">Appearance</h4>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #94a3b8; margin-bottom: 8px; font-size: 0.9rem;">Card Border Color</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="color" id="card-border-color" value="${currentColor}" style="
+                            width: 60px;
+                            height: 40px;
+                            border: 2px solid #334155;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            background: transparent;
+                        ">
+                        <input type="text" id="card-border-hex" value="${currentColor}" style="
+                            flex: 1;
+                            padding: 10px;
+                            background: rgba(30, 41, 59, 0.5);
+                            border: 2px solid #334155;
+                            border-radius: 6px;
+                            color: white;
+                            font-family: monospace;
+                        ">
+                        <button id="reset-border-color" style="
+                            padding: 10px 20px;
+                            background: rgba(51, 65, 85, 0.5);
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 0.9rem;
+                        ">Reset</button>
+                    </div>
+                    <div style="color: #64748b; font-size: 0.8rem; margin-top: 8px;">
+                        Default: #64748b (Slate Gray)
+                    </div>
+                </div>
+                <button id="save-appearance-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Save Appearance Settings</button>
+            </div>
+            
+            <div class="stat-card" style="max-width: 600px;">
+                <h4 style="margin-bottom: 15px;">Data Management</h4>
+                <button id="clear-data-btn" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Clear All Data</button>
+                <button id="export-data-btn" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Export to CSV</button>
+            </div>
+        `;
+        
+        // Color picker sync
+        const colorPicker = document.getElementById('card-border-color');
+        const hexInput = document.getElementById('card-border-hex');
+        
+        colorPicker.addEventListener('input', (e) => {
+            hexInput.value = e.target.value;
+        });
+        
+        hexInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            if (/^#[0-9A-F]{6}$/i.test(value)) {
+                colorPicker.value = value;
+            }
+        });
+        
+        // Reset button
+        document.getElementById('reset-border-color').addEventListener('click', () => {
+            colorPicker.value = '#64748b';
+            hexInput.value = '#64748b';
+        });
+        
+        // Save appearance settings
+        document.getElementById('save-appearance-btn').addEventListener('click', () => {
+            const color = colorPicker.value;
+            chrome.storage.local.set({ cardBorderColor: color }, () => {
+                // Apply immediately
+                applyCardBorderColor(color);
+                // Show feedback
+                const btn = document.getElementById('save-appearance-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Saved!';
+                btn.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            });
+        });
+        
+        // Add event listeners for data management
+        document.getElementById('clear-data-btn').addEventListener('click', clearAllData);
+        document.getElementById('export-data-btn').addEventListener('click', exportData);
+    });
 }
 
 // Close detail panel (must be defined before openDetailPanel)
@@ -705,14 +790,19 @@ function openDetailPanel(item) {
     }, 100);
     
     const getBackgroundStyle = (itemName) => {
-        const shipNameForImage = itemName.toLowerCase()
+        const shipNameLower = itemName.toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
-        return `background: url('ship-backgrounds/${shipNameForImage}.jpg') center/cover, url('ship-backgrounds/${shipNameForImage}.png') center/cover, linear-gradient(135deg, #1e293b 0%, #334155 100%);`;
+        const shipNameCap = itemName
+            .replace(/[^a-z0-9]+/gi, '-')
+            .replace(/^-+|-+$/g, '');
+        const baseUrl = 'https://raw.githubusercontent.com/Copeman-1/StarCitizen-Hangar-Data/refs/heads/main/ships/images';
+        return `background: url('${baseUrl}/${shipNameCap}.jpg') center/cover, url('${baseUrl}/${shipNameCap}.png') center/cover, url('${baseUrl}/${shipNameLower}.jpg') center/cover, url('${baseUrl}/${shipNameLower}.png') center/cover, url('ship-backgrounds/${shipNameLower}.jpg') center/cover, url('ship-backgrounds/${shipNameLower}.png') center/cover, linear-gradient(135deg, #1e293b 0%, #334155 100%);`;
     };
     
-    // Check if this is a loaner
+    // Check if this is a loaner or custom
     const isLoaner = item.isLoaner === true;
+    const isCustom = item.isCustom === true;
     const originalShip = item.loanerFor || null;
     
     panel.innerHTML = `
@@ -751,14 +841,23 @@ function openDetailPanel(item) {
                     <div style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">Status</div>
                     <div style="color: white; font-size: 1.1rem;">${item.status || 'N/A'}</div>
                 </div>
-                <div>
-                    <div style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">${isLoaner ? 'Loaner For' : 'Insurance'}</div>
-                    <div style="color: white; font-size: 1.1rem;">${isLoaner ? originalShip : (item.insurance || 'N/A')}</div>
-                </div>
-                <div>
-                    <div style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">Melt Value</div>
-                    <div style="color: #f59e0b; font-size: 1.3rem; font-weight: bold;">$${item.meltValue || 0}</div>
-                </div>
+                ${!isLoaner ? `
+                    <div>
+                        <div style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">Insurance</div>
+                        <div style="color: white; font-size: 1.1rem;">${item.insurance && item.insurance !== 'N/A' ? item.insurance : '—'}</div>
+                    </div>
+                ` : `
+                    <div>
+                        <div style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">Loaner For</div>
+                        <div style="color: white; font-size: 1.1rem;">${originalShip}</div>
+                    </div>
+                `}
+                ${!isLoaner && !isCustom ? `
+                    <div>
+                        <div style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">Melt Value</div>
+                        <div style="color: #f59e0b; font-size: 1.3rem; font-weight: bold;">$${item.meltValue || 0}</div>
+                    </div>
+                ` : ''}
             </div>
             
             ${isLoaner ? `
@@ -773,6 +872,34 @@ function openDetailPanel(item) {
                     <div style="font-weight: 600; margin-bottom: 5px;">🔄 Loaner Ship</div>
                     <div style="font-size: 0.9rem;">This ship is temporarily provided until ${originalShip} becomes flight ready.</div>
                 </div>
+            ` : ''}
+            
+            ${isCustom ? `
+                <div style="
+                    background: rgba(59, 130, 246, 0.2);
+                    border: 1px solid rgba(59, 130, 246, 0.4);
+                    padding: 15px;
+                    border-radius: 8px;
+                    color: #60a5fa;
+                    margin-bottom: 20px;
+                ">
+                    <div style="font-weight: 600; margin-bottom: 5px;">🎮 In-Game Ship</div>
+                    <div style="font-size: 0.9rem;">This ship was added manually and is not part of your pledge hangar.</div>
+                </div>
+                <button id="delete-custom-ship-btn" style="
+                    width: 100%;
+                    padding: 12px;
+                    background: rgba(239, 68, 68, 0.2);
+                    border: 2px solid rgba(239, 68, 68, 0.5);
+                    color: #ef4444;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    font-size: 1rem;
+                    transition: all 0.2s;
+                ">
+                    🗑️ Delete In-Game Ship
+                </button>
             ` : ''}
             
             ${item.date && item.date !== 'N/A' ? `
@@ -822,6 +949,52 @@ function openDetailPanel(item) {
         });
     }
     
+    // Add delete button handler for custom ships
+    if (isCustom) {
+        const deleteBtn = panel.querySelector('#delete-custom-ship-btn');
+        if (deleteBtn) {
+            // Hover effects
+            deleteBtn.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(239, 68, 68, 0.3)';
+                this.style.borderColor = '#ef4444';
+            });
+            
+            deleteBtn.addEventListener('mouseleave', function() {
+                this.style.background = 'rgba(239, 68, 68, 0.2)';
+                this.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+            });
+            
+            // Delete handler
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Confirm deletion
+                if (confirm(`Are you sure you want to delete "${item.name}" from your fleet?`)) {
+                    // Remove from hangarData
+                    const index = hangarData.findIndex(ship => ship.id === item.id);
+                    if (index > -1) {
+                        hangarData.splice(index, 1);
+                    }
+                    
+                    // Update storage
+                    chrome.storage.local.get(['hangarData'], (result) => {
+                        const storedData = result.hangarData || [];
+                        const storedIndex = storedData.findIndex(ship => ship.id === item.id);
+                        if (storedIndex > -1) {
+                            storedData.splice(storedIndex, 1);
+                            chrome.storage.local.set({ hangarData: storedData }, () => {
+                                // Close panel
+                                window.closeDetailPanel();
+                                // Reload view
+                                loadAllData();
+                            });
+                        }
+                    });
+                }
+            });
+        }
+    }
+    
     // Slide in
     setTimeout(() => {
         panel.style.right = '0';
@@ -838,10 +1011,14 @@ function renderItemGrid(items, containerId, showCredit = false, append = false) 
     }
     
     const getBackgroundStyle = (itemName) => {
-        const shipNameForImage = itemName.toLowerCase()
+        const shipNameLower = itemName.toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
-        return `background: url('ship-backgrounds/${shipNameForImage}.jpg') center/cover, url('ship-backgrounds/${shipNameForImage}.png') center/cover, linear-gradient(135deg, #1e293b 0%, #334155 100%);`;
+        const shipNameCap = itemName
+            .replace(/[^a-z0-9]+/gi, '-')
+            .replace(/^-+|-+$/g, '');
+        const baseUrl = 'https://raw.githubusercontent.com/Copeman-1/StarCitizen-Hangar-Data/refs/heads/main/ships/images';
+        return `background: url('${baseUrl}/${shipNameCap}.jpg') center/cover, url('${baseUrl}/${shipNameCap}.png') center/cover, url('${baseUrl}/${shipNameLower}.jpg') center/cover, url('${baseUrl}/${shipNameLower}.png') center/cover, url('ship-backgrounds/${shipNameLower}.jpg') center/cover, url('ship-backgrounds/${shipNameLower}.png') center/cover, linear-gradient(135deg, #1e293b 0%, #334155 100%);`;
     };
     
     const html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">${items.map((item, index) => {
@@ -850,14 +1027,18 @@ function renderItemGrid(items, containerId, showCredit = false, append = false) 
         const isCustom = item.isCustom === true;
         const originalShip = item.loanerFor || null;
         
+        // Status badges
+        const isInConcept = item.status === 'In Concept';
+        const isFlightReady = item.status === 'Flight Ready';
+        
         return `
         <div class="ship-card" data-item-index="${index}" style="
             ${getBackgroundStyle(item.name)}
-            border-radius: 8px;
+            border-radius: 16px;
             overflow: hidden;
             cursor: pointer;
             transition: all 0.3s;
-            border: 2px solid ${isLoaner ? 'rgba(245, 158, 11, 0.5)' : isCustom ? 'rgba(59, 130, 246, 0.5)' : 'transparent'};
+            border: 2px solid ${isLoaner ? 'rgba(245, 158, 11, 0.7)' : isCustom ? 'rgba(59, 130, 246, 0.7)' : 'transparent'};
             position: relative;
             aspect-ratio: 16/9;
         ">
@@ -872,24 +1053,25 @@ function renderItemGrid(items, containerId, showCredit = false, append = false) 
                 <div style="font-size: 1.1rem; font-weight: 600; color: white; margin-bottom: 5px;">${item.name}</div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="font-size: 0.85rem; color: #94a3b8;">
-                        ${item.type} ${!isLoaner && !isCustom && item.insurance ? '- ' + item.insurance : ''}
-                        ${isLoaner && originalShip ? '- Loaner for ' + originalShip : ''}
-                        ${isCustom ? '- In-Game' : ''}
+                        ${item.type}${!isLoaner && !isCustom && item.insurance && item.insurance !== 'N/A' ? ' - ' + item.insurance : ''}
+                        ${isLoaner && originalShip ? ' - Loaner for ' + originalShip : ''}
+                        ${isCustom ? ' - In-Game' : ''}
                     </div>
-                    <div style="
+                    ${!isCustom && !isLoaner ? `<div style="
                         background: #f59e0b;
                         color: white;
                         padding: 4px 12px;
                         border-radius: 12px;
                         font-weight: 600;
                         font-size: 0.9rem;
-                    ">$${item.meltValue || 0}</div>
+                    ">$${item.meltValue || 0}</div>` : ''}
                 </div>
             </div>
-            ${item.status === 'In Concept' ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(239, 68, 68, 0.9); color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Concept</div>' : ''}
-            ${isLoaner ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(245, 158, 11, 0.9); color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">🔄 Loaner</div>' : ''}
-            ${isCustom ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(59, 130, 246, 0.9); color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">🎮 In-Game</div>' : ''}
-            ${showCredit && item.canUseCredit ? '<div style="position: absolute; top: 10px; right: 10px; background: rgba(34, 197, 94, 0.9); color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">✓ Credit</div>' : ''}
+            ${isInConcept ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(239, 68, 68, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">Concept</div>' : ''}
+            ${isFlightReady && !isLoaner && !isCustom ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(34, 197, 94, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">Flight Ready</div>' : ''}
+            ${isLoaner ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(245, 158, 11, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🔄 Loaner</div>' : ''}
+            ${isCustom ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(59, 130, 246, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🎮 In-Game</div>' : ''}
+            ${showCredit && item.canUseCredit ? '<div style="position: absolute; top: 10px; right: 10px; background: rgba(34, 197, 94, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">✓ Credit</div>' : ''}
         </div>
     `}).join('')}</div>`;
     
@@ -916,6 +1098,36 @@ function renderItemGrid(items, containerId, showCredit = false, append = false) 
             this.style.transform = 'translateY(0)';
             this.style.boxShadow = 'none';
         });
+    });
+}
+
+// Apply card border color
+function applyCardBorderColor(color) {
+    // Create or update style tag
+    let styleTag = document.getElementById('custom-card-styles');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'custom-card-styles';
+        document.head.appendChild(styleTag);
+    }
+    
+    styleTag.textContent = `
+        .ship-card {
+            border: 2px solid ${color} !important;
+            border-radius: 16px !important;
+        }
+        
+        .ship-card:hover {
+            border-color: #3b82f6 !important;
+        }
+    `;
+}
+
+// Load and apply card border color on startup
+function loadCardBorderColor() {
+    chrome.storage.local.get(['cardBorderColor'], (result) => {
+        const color = result.cardBorderColor || '#64748b';
+        applyCardBorderColor(color);
     });
 }
 
@@ -1094,5 +1306,21 @@ function exportData() {
 }
 
 // Initialize
-loadAllData();
-checkForUpdates();
+async function initializeApp() {
+    // Load card border color
+    loadCardBorderColor();
+    
+    // Load data from GitHub first
+    await Promise.all([
+        loadShipsDatabase(),
+        loadLoanerMatrix()
+    ]);
+    
+    // Then load user data
+    loadAllData();
+    
+    // Check for updates
+    checkForUpdates();
+}
+
+initializeApp();
