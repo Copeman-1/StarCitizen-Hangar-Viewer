@@ -7,6 +7,7 @@ window.DATA_REPO_BASE = DATA_REPO_BASE; // Make it globally accessible
 const DATA_VERSION_KEY = 'githubDataVersion';
 const SHIPS_CACHE_KEY = 'shipsDatabase';
 const LOANERS_CACHE_KEY = 'loanersMatrix';
+const GROUND_VEHICLES_CACHE_KEY = 'groundVehiclesList';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // Load ships database from GitHub or cache
@@ -172,18 +173,71 @@ function getShipImageUrl(shipName) {
     ];
 }
 
+// Load ground vehicles list from GitHub or cache
+async function loadGroundVehiclesList() {
+    try {
+        // Check if we have cached data
+        const cachedData = localStorage.getItem(GROUND_VEHICLES_CACHE_KEY);
+        const cacheTime = localStorage.getItem(`${GROUND_VEHICLES_CACHE_KEY}_time`);
+        
+        // Use cache if valid (less than 24 hours old)
+        if (cachedData && cacheTime && (Date.now() - parseInt(cacheTime)) < CACHE_DURATION) {
+            console.log('Using cached ground vehicles list');
+            window.GROUND_VEHICLES = JSON.parse(cachedData);
+            return window.GROUND_VEHICLES;
+        }
+        
+        // Fetch fresh data from GitHub
+        console.log('Fetching ground vehicles list from GitHub...');
+        const response = await fetch(`${DATA_REPO_BASE}/vehicles/ground-vehicles.json`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ground vehicles list: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        window.GROUND_VEHICLES = data.groundVehicles;
+        
+        // Cache the data
+        localStorage.setItem(GROUND_VEHICLES_CACHE_KEY, JSON.stringify(data.groundVehicles));
+        localStorage.setItem(`${GROUND_VEHICLES_CACHE_KEY}_time`, Date.now().toString());
+        
+        console.log(`Loaded ${data.groundVehicles.length} ground vehicles from GitHub`);
+        return window.GROUND_VEHICLES;
+        
+    } catch (error) {
+        console.error('Error loading ground vehicles list from GitHub:', error);
+        
+        // Fall back to cached data if available
+        const cachedData = localStorage.getItem(GROUND_VEHICLES_CACHE_KEY);
+        if (cachedData) {
+            console.log('Using fallback cached ground vehicles list');
+            window.GROUND_VEHICLES = JSON.parse(cachedData);
+            return window.GROUND_VEHICLES;
+        }
+        
+        // No cache available, return empty array
+        console.warn('No ground vehicles data available');
+        window.GROUND_VEHICLES = [];
+        return [];
+    }
+}
+
 // Clear cached data (for testing or manual refresh)
 function clearDataCache() {
     localStorage.removeItem(SHIPS_CACHE_KEY);
     localStorage.removeItem(LOANERS_CACHE_KEY);
+    localStorage.removeItem(GROUND_VEHICLES_CACHE_KEY);
     localStorage.removeItem(DATA_VERSION_KEY);
     localStorage.removeItem(`${SHIPS_CACHE_KEY}_time`);
     localStorage.removeItem(`${LOANERS_CACHE_KEY}_time`);
+    localStorage.removeItem(`${GROUND_VEHICLES_CACHE_KEY}_time`);
     console.log('Data cache cleared');
 }
 
 // Export functions
 window.loadShipsDatabase = loadShipsDatabase;
 window.loadLoanerMatrix = loadLoanerMatrix;
+window.loadGroundVehiclesList = loadGroundVehiclesList;
 window.getShipImageUrl = getShipImageUrl;
 window.clearDataCache = clearDataCache;

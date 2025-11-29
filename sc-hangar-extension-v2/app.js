@@ -4,7 +4,8 @@ let buybackData = [];
 let wishlistData = [];
 let conciergeLevel = null;
 
-const CURRENT_VERSION = '2.0.4';
+// Get version from manifest.json dynamically
+const CURRENT_VERSION = chrome.runtime.getManifest().version;
 const GITHUB_REPO = 'Copeman-1/StarCitizen-Hangar-Viewer';
 
 // Check for updates on GitHub
@@ -113,9 +114,89 @@ const viewTitles = {
     buyback: 'Buyback Queue',
     wishlist: 'Wishlist',
     statistics: 'Fleet Statistics',
-    value: 'Fleet Value Analysis',
+    value: 'Hangar Value Analysis',
     settings: 'Settings'
 };
+
+// Correct vehicle types based on ground vehicles list from GitHub
+function correctVehicleTypes() {
+    if (!window.GROUND_VEHICLES || !Array.isArray(window.GROUND_VEHICLES)) {
+        console.warn('Ground vehicles list not loaded yet');
+        return;
+    }
+    
+    let correctionsMade = 0;
+    
+    console.log('Starting vehicle type correction...');
+    console.log('Ground vehicles list:', window.GROUND_VEHICLES);
+    
+    hangarData.forEach(item => {
+        // Normalize item name for comparison (remove extra spaces, variants, etc.)
+        const itemNameNormalized = item.name.toLowerCase().trim();
+        
+        // Check if this item's name matches any ground vehicle
+        const matchedVehicle = window.GROUND_VEHICLES.find(gv => {
+            const gvNormalized = gv.toLowerCase().trim();
+            
+            // Direct match
+            if (itemNameNormalized === gvNormalized) {
+                return true;
+            }
+            
+            // Item name contains ground vehicle name
+            if (itemNameNormalized.includes(gvNormalized)) {
+                return true;
+            }
+            
+            // Ground vehicle name contains item name (for base models)
+            if (gvNormalized.includes(itemNameNormalized)) {
+                return true;
+            }
+            
+            // Check if item name starts with ground vehicle name (for variants)
+            if (itemNameNormalized.startsWith(gvNormalized)) {
+                return true;
+            }
+            
+            return false;
+        });
+        
+        if (matchedVehicle && item.type !== 'Ground Vehicle') {
+            const loanerTag = item.isLoaner ? ' [LOANER]' : '';
+            console.log(`✓ Correcting "${item.name}"${loanerTag} (${item.type}) to Ground Vehicle (matched: ${matchedVehicle})`);
+            item.type = 'Ground Vehicle';
+            correctionsMade++;
+        } else if (!matchedVehicle) {
+            // Log vehicles that might be ground vehicles but didn't match
+            const possibleGroundVehicle = itemNameNormalized.includes('cyclone') || 
+                                          itemNameNormalized.includes('roc') ||
+                                          itemNameNormalized.includes('ursa') ||
+                                          itemNameNormalized.includes('ranger') ||
+                                          itemNameNormalized.includes('nox') ||
+                                          itemNameNormalized.includes('dragonfly') ||
+                                          itemNameNormalized.includes('pulse') ||
+                                          itemNameNormalized.includes('x1') ||
+                                          itemNameNormalized.includes('ballista') ||
+                                          itemNameNormalized.includes('nova') ||
+                                          itemNameNormalized.includes('spartan') ||
+                                          itemNameNormalized.includes('ptv');
+            
+            if (possibleGroundVehicle && item.type === 'Ship') {
+                const loanerTag = item.isLoaner ? ' [LOANER]' : '';
+                console.log(`⚠ Possible ground vehicle not matched: "${item.name}"${loanerTag} (${item.type})`);
+            }
+        }
+    });
+    
+    if (correctionsMade > 0) {
+        console.log(`✅ Corrected ${correctionsMade} vehicle type(s)`);
+        // Save corrected data back to storage (but only for non-loaners since loaners are generated)
+        const nonLoanerData = hangarData.filter(item => !item.isLoaner);
+        chrome.storage.local.set({ hangarData: nonLoanerData });
+    } else {
+        console.log('ℹ No vehicle type corrections needed');
+    }
+}
 
 // Load all data on startup
 function loadAllData() {
@@ -146,7 +227,7 @@ function loadAllData() {
                                     id: `loaner-${generatedLoaners.length}`,
                                     name: loanerName,
                                     originalName: loanerName,
-                                    type: 'Ship', // Most loaners are ships
+                                    type: 'Ship', // Default to Ship, will be corrected below
                                     status: 'Flight Ready',
                                     insurance: 'N/A',
                                     meltValue: 0,
@@ -166,6 +247,9 @@ function loadAllData() {
             
             console.log(`Generated ${generatedLoaners.length} loaner ships:`, generatedLoaners);
         }
+        
+        // Correct vehicle types based on GitHub ground vehicles list (AFTER loaners are generated)
+        correctVehicleTypes();
         
         // Render current view
         const activeView = document.querySelector('.sidebar-item.active')?.getAttribute('data-view') || 'fleet';
@@ -233,6 +317,51 @@ function renderView(viewName) {
     }
 }
 
+// Calculate Concierge level based on hangar value
+function getConciergeLevelFromValue(totalValue) {
+    const levels = [
+        { name: 'High Admiral', min: 1000, next: 2500, icon: 'High_admiral.png' },
+        { name: 'Grand Admiral', min: 2500, next: 5000, icon: 'Grand_admiral.png' },
+        { name: 'Space Marshal', min: 5000, next: 10000, icon: 'Space_marshal.png' },
+        { name: 'Wing Commander', min: 10000, next: 15000, icon: 'Wing_commander.png' },
+        { name: 'Praetorian', min: 15000, next: 25000, icon: 'Praetorian.png' },
+        { name: 'Legatus Navium', min: 25000, next: null, icon: 'Legatus.png' }
+    ];
+    
+    if (totalValue < 1000) {
+        return null; // Not Concierge
+    }
+    
+    for (let i = 0; i < levels.length; i++) {
+        const level = levels[i];
+        const nextLevel = levels[i + 1];
+        
+        // Check if current value is in this level's range
+        if (nextLevel && totalValue >= level.min && totalValue < nextLevel.min) {
+            // RSI calculates from $0 to next level threshold
+            const progress = (totalValue / nextLevel.min) * 100;
+            return {
+                name: level.name,
+                icon: level.icon,
+                nextLevel: nextLevel.name,
+                progress: Math.round(progress),
+                currentValue: totalValue,
+                nextThreshold: nextLevel.min
+            };
+        }
+    }
+    
+    // Legatus Navium (max level) - reached when >= 25000
+    return {
+        name: 'Legatus Navium',
+        icon: 'Legatus.png',
+        nextLevel: null,
+        progress: 100,
+        currentValue: totalValue,
+        nextThreshold: null
+    };
+}
+
 // Fleet View - Overview of everything
 function renderFleetView() {
     const content = document.getElementById('fleet-content');
@@ -272,67 +401,161 @@ function renderFleetView() {
     const totalShips = ownedShips.filter(i => i.type === 'Ship').length;
     const totalVehicles = ownedShips.filter(i => i.type === 'Ground Vehicle').length;
     const totalValue = ownedShips.reduce((sum, i) => sum + (i.meltValue || 0), 0);
+    
+    // Calculate total hangar value (including everything for Concierge)
+    const totalHangarValue = hangarData.reduce((sum, i) => sum + (i.meltValue || 0), 0);
+    
     const buybackCount = buybackData.length;
     const wishlistCount = wishlistData.length;
     const loanerCount = loanerShips.length;
     
     let html = '';
     
-    // Concierge badge if applicable
-    if (conciergeLevel) {
+    // Calculate Concierge level from FULL hangar value
+    const conciergeLevelData = getConciergeLevelFromValue(totalHangarValue);
+    
+    // Concierge and Stats Layout - Side by Side
+    html += `<div style="display: flex; gap: 24px; margin-bottom: 32px; align-items: flex-start;">`;
+    
+    // Concierge badge if applicable - RSI Style with calculated level
+    if (conciergeLevelData) {
+        const progressPercent = conciergeLevelData.progress || 0;
+        const nextLevelText = conciergeLevelData.nextLevel || 'Max Level';
+        
         html += `
-            <div style="background: linear-gradient(135deg, rgba(218, 165, 32, 0.15) 0%, rgba(184, 134, 11, 0.15) 100%); 
-                        border: 2px solid rgba(218, 165, 32, 0.4); 
-                        border-radius: 12px; 
-                        padding: 20px; 
-                        margin-bottom: 30px;
-                        text-align: center;">
-                <div style="font-size: 1.1rem; color: #DAA520; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">
-                    Concierge
-                </div>
-                <div style="font-size: 1.8rem; font-weight: bold; color: #FFD700;">
-                    ${conciergeLevel}
-                </div>
-                <div style="font-size: 0.9rem; color: #B8860B; margin-top: 8px; font-style: italic;">
-                    Chairman's Club
+            <div style="
+                background: url('concierge-assets/concierge-card-background.png') center/cover, linear-gradient(135deg, #e8d5b7 0%, #d4c5a9 100%);
+                border-radius: 16px;
+                padding: 20px 24px;
+                position: relative;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                flex: 0 0 450px;
+            ">
+                <!-- Header -->
+                <div style="
+                    font-size: 1.3rem;
+                    color: #6b5d4f;
+                    font-weight: 400;
+                    margin-bottom: 8px;
+                    letter-spacing: 0.3px;
+                ">Concierge</div>
+                
+                <div style="
+                    font-size: 0.8rem;
+                    color: #8b7a66;
+                    margin-bottom: 14px;
+                    font-weight: 400;
+                ">Join the exclusive Chairman's Club.</div>
+                
+                <!-- Level Card -->
+                <div style="
+                    background: rgba(255, 255, 255, 0.4);
+                    border-radius: 10px;
+                    padding: 14px 18px;
+                ">
+                    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                        <!-- Icon -->
+                        <div style="
+                            width: 40px;
+                            height: 40px;
+                            background: url('concierge-assets/${conciergeLevelData.icon}') center/contain no-repeat;
+                            flex-shrink: 0;
+                        "></div>
+                        
+                        <!-- Level Info -->
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="
+                                font-size: 0.7rem;
+                                color: #8b7a66;
+                                margin-bottom: 3px;
+                                font-weight: 500;
+                            ">Your level:</div>
+                            <div style="
+                                font-size: 1.4rem;
+                                color: #6b5d4f;
+                                font-weight: 600;
+                                line-height: 1.1;
+                            ">${conciergeLevelData.name}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Section -->
+                    <div style="margin-top: 10px;">
+                        <div style="
+                            font-size: 0.7rem;
+                            color: #8b7a66;
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 6px;
+                        ">
+                            <span><span style="font-weight: 500;">Next level:</span> <span style="color: #6b5d4f; font-weight: 600;">${nextLevelText}</span></span>
+                            <span style="color: #6b5d4f; font-weight: 600;">${Math.round(progressPercent)}%</span>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div style="
+                            width: 100%;
+                            height: 8px;
+                            background: rgba(107, 93, 79, 0.2);
+                            border-radius: 4px;
+                            overflow: hidden;
+                        ">
+                            <div style="
+                                width: ${progressPercent}%;
+                                height: 100%;
+                                background: linear-gradient(90deg, #b8944a 0%, #d4af37 100%);
+                                border-radius: 4px;
+                                transition: width 0.3s ease;
+                            "></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
     }
     
-    // Stats grid
+    function getNextLevel(current) {
+        const levels = ['Wing Commander', 'High Admiral', 'Grand Admiral', 'Space Marshal', 'Praetorian', 'Legatus Navium'];
+        const index = levels.indexOf(current);
+        return index >= 0 && index < levels.length - 1 ? levels[index + 1] : 'Legatus Navium';
+    }
+    
+    // Stats grid - compact, next to Concierge
     html += `
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Total Ships</div>
-                <div class="stat-value">${totalShips}</div>
+        <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px;">
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">Total Ships</div>
+                <div class="stat-value" style="font-size: 2.2rem;">${totalShips}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Ground Vehicles</div>
-                <div class="stat-value">${totalVehicles}</div>
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">Ground Vehicles</div>
+                <div class="stat-value" style="font-size: 2.2rem;">${totalVehicles}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Total Owned</div>
-                <div class="stat-value">${ownedShips.length}</div>
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">Total Owned</div>
+                <div class="stat-value" style="font-size: 2.2rem;">${ownedShips.length}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Fleet Value</div>
-                <div class="stat-value">$${totalValue}</div>
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">Hangar Value</div>
+                <div class="stat-value" style="font-size: 2.2rem;">$${totalHangarValue}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">🔄 Loaners</div>
-                <div class="stat-value">${loanerCount}</div>
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">🔄 Loaners</div>
+                <div class="stat-value" style="font-size: 2.2rem;">${loanerCount}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Buyback Queue</div>
-                <div class="stat-value">${buybackCount}</div>
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">Buyback Queue</div>
+                <div class="stat-value" style="font-size: 2.2rem;">${buybackCount}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Wishlist</div>
-                <div class="stat-value">${wishlistCount}</div>
+            <div class="stat-card" style="padding: 18px 16px;">
+                <div class="stat-label" style="font-size: 0.75rem;">Wishlist</div>
+                <div class="stat-value" style="font-size: 2.2rem;">${wishlistCount}</div>
             </div>
         </div>
+    </div>`;
         
+    html += `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3 style="color: #3b82f6; margin: 0;">Your Fleet</h3>
             <button id="add-custom-ship-btn" style="
@@ -622,7 +845,7 @@ function renderValueView() {
     let html = `
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Total Fleet Value</div>
+                <div class="stat-label">Total Hangar Value</div>
                 <div class="stat-value">$${totalValue}</div>
             </div>
             <div class="stat-card">
@@ -1021,7 +1244,7 @@ function renderItemGrid(items, containerId, showCredit = false, append = false) 
         return `background: url('${baseUrl}/${shipNameCap}.jpg') center/cover, url('${baseUrl}/${shipNameCap}.png') center/cover, url('${baseUrl}/${shipNameLower}.jpg') center/cover, url('${baseUrl}/${shipNameLower}.png') center/cover, url('ship-backgrounds/${shipNameLower}.jpg') center/cover, url('ship-backgrounds/${shipNameLower}.png') center/cover, linear-gradient(135deg, #1e293b 0%, #334155 100%);`;
     };
     
-    const html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">${items.map((item, index) => {
+    const html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">${items.map((item, index) => {
         // Check if this is marked as a loaner or custom
         const isLoaner = item.isLoaner === true;
         const isCustom = item.isCustom === true;
@@ -1034,44 +1257,145 @@ function renderItemGrid(items, containerId, showCredit = false, append = false) 
         return `
         <div class="ship-card" data-item-index="${index}" style="
             ${getBackgroundStyle(item.name)}
-            border-radius: 16px;
+            border-radius: 20px;
             overflow: hidden;
             cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid ${isLoaner ? 'rgba(245, 158, 11, 0.7)' : isCustom ? 'rgba(59, 130, 246, 0.7)' : 'transparent'};
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid ${isLoaner ? 'rgba(245, 158, 11, 0.6)' : isCustom ? 'rgba(59, 130, 246, 0.6)' : 'transparent'};
             position: relative;
             aspect-ratio: 16/9;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         ">
+            <!-- Gradient Overlay -->
+            <div style="
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 45%, transparent 75%);
+                pointer-events: none;
+                z-index: 1;
+            "></div>
+            
+            <!-- Content Container -->
             <div style="
                 position: absolute;
                 bottom: 0;
                 left: 0;
                 right: 0;
-                background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 70%, transparent 100%);
-                padding: 15px;
+                padding: 24px;
+                z-index: 2;
             ">
-                <div style="font-size: 1.1rem; font-weight: 600; color: white; margin-bottom: 5px;">${item.name}</div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-size: 0.85rem; color: #94a3b8;">
-                        ${item.type}${!isLoaner && !isCustom && item.insurance && item.insurance !== 'N/A' ? ' - ' + item.insurance : ''}
-                        ${isLoaner && originalShip ? ' - Loaner for ' + originalShip : ''}
-                        ${isCustom ? ' - In-Game' : ''}
+                <!-- Ship Name -->
+                <div style="
+                    font-size: 1.35rem;
+                    font-weight: 700;
+                    color: white;
+                    margin-bottom: 10px;
+                    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+                    letter-spacing: -0.3px;
+                    line-height: 1.2;
+                ">${item.name}</div>
+                
+                <!-- Details Row -->
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                    <div style="
+                        font-size: 0.9rem;
+                        color: #cbd5e1;
+                        font-weight: 500;
+                        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+                    ">
+                        ${item.type}${!isLoaner && !isCustom && item.insurance && item.insurance !== 'N/A' ? ' • ' + item.insurance : ''}
+                        ${isLoaner && originalShip ? ' • Loaner for ' + originalShip : ''}
+                        ${isCustom ? ' • In-Game' : ''}
                     </div>
                     ${!isCustom && !isLoaner ? `<div style="
-                        background: #f59e0b;
+                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
                         color: white;
-                        padding: 4px 12px;
+                        padding: 6px 16px;
                         border-radius: 12px;
-                        font-weight: 600;
-                        font-size: 0.9rem;
+                        font-weight: 700;
+                        font-size: 1rem;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                        white-space: nowrap;
                     ">$${item.meltValue || 0}</div>` : ''}
                 </div>
             </div>
-            ${isInConcept ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(239, 68, 68, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">Concept</div>' : ''}
-            ${isFlightReady && !isLoaner && !isCustom ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(34, 197, 94, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">Flight Ready</div>' : ''}
-            ${isLoaner ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(245, 158, 11, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🔄 Loaner</div>' : ''}
-            ${isCustom ? '<div style="position: absolute; top: 10px; left: 10px; background: rgba(59, 130, 246, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🎮 In-Game</div>' : ''}
-            ${showCredit && item.canUseCredit ? '<div style="position: absolute; top: 10px; right: 10px; background: rgba(34, 197, 94, 0.95); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">✓ Credit</div>' : ''}
+            
+            <!-- Status Badges -->
+            ${isInConcept ? `<div class="badge badge-concept" style="
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%);
+                color: white;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 0.7rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                z-index: 3;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            ">Concept</div>` : ''}
+            ${isFlightReady && !isLoaner && !isCustom ? `<div class="badge badge-ready" style="
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                background: linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(22, 163, 74, 0.95) 100%);
+                color: white;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 0.7rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                z-index: 3;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            ">Flight Ready</div>` : ''}
+            ${isLoaner ? `<div class="badge badge-loaner" style="
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                background: linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(217, 119, 6, 0.95) 100%);
+                color: white;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 0.7rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                z-index: 3;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            ">🔄 Loaner</div>` : ''}
+            ${isCustom ? `<div class="badge badge-ingame" style="
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.95) 0%, rgba(37, 99, 235, 0.95) 100%);
+                color: white;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 0.7rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                z-index: 3;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            ">🎮 In-Game</div>` : ''}
+            ${showCredit && item.canUseCredit ? `<div class="badge badge-credit" style="
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                background: linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(22, 163, 74, 0.95) 100%);
+                color: white;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 0.7rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                z-index: 3;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            ">✓ Credit</div>` : ''}
         </div>
     `}).join('')}</div>`;
     
@@ -1307,13 +1631,20 @@ function exportData() {
 
 // Initialize
 async function initializeApp() {
+    // Display version in UI
+    const versionElement = document.getElementById('app-version');
+    if (versionElement) {
+        versionElement.textContent = CURRENT_VERSION;
+    }
+    
     // Load card border color
     loadCardBorderColor();
     
     // Load data from GitHub first
     await Promise.all([
         loadShipsDatabase(),
-        loadLoanerMatrix()
+        loadLoanerMatrix(),
+        loadGroundVehiclesList()
     ]);
     
     // Then load user data

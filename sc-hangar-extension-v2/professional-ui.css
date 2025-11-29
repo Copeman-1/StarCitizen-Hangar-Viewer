@@ -1,0 +1,273 @@
+/* Professional UI Design System for Star Citizen Hangar Manager */
+
+/* ===== TYPOGRAPHY & SPACING ===== */
+:root {
+    --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+    
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== ENHANCED SIDEBAR ===== */
+.sidebar {
+    width: 280px !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    backdrop-filter: blur(12px) !important;
+    border-right: 1px solid rgba(71, 85, 105, 0.4) !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.sidebar-header {
+    padding: var(--spacing-xl) var(--spacing-lg) !important;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%) !important;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3) !important;
+}
+
+.sidebar-header h1 {
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    letter-spacing: -0.5px !important;
+    margin-bottom: var(--spacing-sm) !important;
+}
+
+.sidebar-header .version {
+    font-size: 0.75rem !important;
+    color: #64748b !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.2px !important;
+}
+
+/* ===== NAVIGATION ITEMS ===== */
+.sidebar-section {
+    padding: var(--spacing-lg) 0 !important;
+}
+
+.sidebar-section-title {
+    padding: 0 var(--spacing-lg) var(--spacing-md) !important;
+    font-size: 0.7rem !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+    font-weight: 700 !important;
+}
+
+.sidebar-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: var(--spacing-md) !important;
+    padding: 14px var(--spacing-lg) !important;
+    margin: 0 var(--spacing-md) var(--spacing-xs) !important;
+    cursor: pointer !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    font-weight: 500 !important;
+    font-size: 0.95rem !important;
+    color: #94a3b8 !important;
+    border-radius: var(--radius-md) !important;
+    border-left: 3px solid transparent !important;
+    position: relative !important;
+}
+
+.sidebar-item::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 3px !important;
+    height: 0 !important;
+    background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%) !important;
+    border-radius: 0 2px 2px 0 !important;
+    transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.sidebar-item:hover {
+    background: rgba(59, 130, 246, 0.08) !important;
+    color: #e2e8f0 !important;
+    transform: translateX(4px) !important;
+}
+
+.sidebar-item.active {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%) !important;
+    color: #60a5fa !important;
+    font-weight: 600 !important;
+    border-left-color: #3b82f6 !important;
+}
+
+.sidebar-item.active::before {
+    height: 60% !important;
+}
+
+.sidebar-item-icon {
+    font-size: 1.3rem !important;
+    width: 28px !important;
+    text-align: center !important;
+}
+
+/* ===== PROFESSIONAL STATS CARDS ===== */
+.stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+    gap: var(--spacing-lg) !important;
+    margin-bottom: var(--spacing-2xl) !important;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(51, 65, 85, 0.7) 100%) !important;
+    backdrop-filter: blur(12px) !important;
+    padding: var(--spacing-xl) var(--spacing-lg) !important;
+    border-radius: var(--radius-lg) !important;
+    border: 1px solid rgba(71, 85, 105, 0.4) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+.stat-card::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 4px !important;
+    background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 100%) !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s !important;
+}
+
+.stat-card:hover {
+    transform: translateY(-6px) !important;
+    border-color: rgba(96, 165, 250, 0.6) !important;
+    box-shadow: 0 16px 48px rgba(59, 130, 246, 0.25) !important;
+}
+
+.stat-card:hover::before {
+    opacity: 1 !important;
+}
+
+.stat-label {
+    font-size: 0.8rem !important;
+    color: #94a3b8 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.2px !important;
+    margin-bottom: var(--spacing-md) !important;
+}
+
+.stat-value {
+    font-size: 2.75rem !important;
+    font-weight: 800 !important;
+    background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    line-height: 1 !important;
+    letter-spacing: -1px !important;
+}
+
+/* ===== PROFESSIONAL BUTTONS ===== */
+.btn {
+    padding: 12px 24px !important;
+    border-radius: var(--radius-md) !important;
+    border: none !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    cursor: pointer !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: var(--spacing-sm) !important;
+    letter-spacing: 0.3px !important;
+    font-family: var(--font-system) !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35) !important;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45) !important;
+}
+
+.btn-secondary {
+    background: rgba(51, 65, 85, 0.6) !important;
+    color: white !important;
+    border: 1px solid rgba(71, 85, 105, 0.5) !important;
+}
+
+.btn-secondary:hover {
+    background: rgba(71, 85, 105, 0.8) !important;
+    border-color: rgba(96, 165, 250, 0.5) !important;
+}
+
+/* ===== TOPBAR ENHANCEMENT ===== */
+.topbar {
+    background: rgba(15, 23, 42, 0.98) !important;
+    backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.4) !important;
+    padding: var(--spacing-lg) var(--spacing-xl) !important;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+.topbar h2 {
+    font-size: 1.75rem !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    letter-spacing: -0.5px !important;
+}
+
+/* ===== CONTENT AREA ===== */
+.content-area {
+    padding: var(--spacing-2xl) !important;
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(30, 41, 59, 0.5) !important;
+    border-radius: 5px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(71, 85, 105, 0.9) 0%, rgba(51, 65, 85, 0.9) 100%) !important;
+    border-radius: 5px !important;
+    border: 2px solid rgba(30, 41, 59, 0.5) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(96, 165, 250, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%) !important;
+}
+
+/* ===== SHIP CARD HOVER EFFECTS ===== */
+.ship-card:hover {
+    transform: translateY(-8px) scale(1.02) !important;
+    box-shadow: 0 20px 50px rgba(59, 130, 246, 0.35) !important;
+}
