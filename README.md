@@ -1,5 +1,7 @@
-<img width="1851" height="923" alt="Screenshot 2025-11-25 152938" src="https://github.com/user-attachments/assets/d87562e1-f836-403a-8ea1-17c77a9f203f" />
+<img width="1866" height="940" alt="Screenshot 2025-11-29 175118" src="https://github.com/user-attachments/assets/e9b30f06-8614-4d7d-ab47-884c7bcd413a" />
+
 # Star Citizen Hangar Manager
+
 
 
 A comprehensive Chrome extension for managing, tracking, and visualizing your Star Citizen fleet. Extract data from your RSI hangar, track loaners, manage wishlists, and more!
